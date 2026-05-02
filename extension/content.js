@@ -1,27 +1,32 @@
-console.log("Aegis extension loaded");
-// document.addEventListener("click", async function (e) {
-//     if (e.target.id === "payBtn") {
-//         e.preventDefault();
+console.log("Extension loaded");
 
-//         const amount = document.getElementById("amount").value;
-//         const recipient = document.getElementById("recipient").value;
+document.getElementById("payBtn")?.addEventListener("click", async function (e) {
+    e.preventDefault();
 
-//         const response = await fetch("http://127.0.0.1:8000/risk", {
-//             method: "POST",
-//             headers: {"Content-Type": "application/json"},
-//             body: JSON.stringify({amount, recipient})
-//         });
+    const amount = document.getElementById("amount").value;
+    const recipient = document.getElementById("recipient").value;
 
-//         const data = await response.json();
+    try {
+        const response = await fetch("http://127.0.0.1:8000/risk", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                user_id: "123",
+                amount,
+                recipient
+            })
+        });
 
-//         if (data.action === "BLOCK") {
-//             alert("Blocked: " + data.reasons.join(", "));
-//         } else {
-//             document.getElementById("paymentForm").submit();
-//         }
-//     }
-// });
+        const data = await response.json();
 
-document.addEventListener("click", function (e) {
-    console.log("Clicked element:", e.target);
+        if (data.action === "BLOCK") {
+            alert("Blocked: " + data.reasons.join(", "));
+        } else {
+            document.getElementById("paymentForm").submit();
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Error connecting to backend");
+    }
 });

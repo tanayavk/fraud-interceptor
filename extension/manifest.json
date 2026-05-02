@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Aegis Fraud Interceptor",
+  "name": "Fraud Interceptor",
   "version": "1.0",
   "permissions": ["activeTab", "scripting"],
   "content_scripts": [
