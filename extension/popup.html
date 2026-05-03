@@ -3,83 +3,104 @@
 <head>
   <meta charset="UTF-8"/>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 260px; min-height: 160px;
-      background: #0b1f3a; color: #e8edf5;
-      font-family: 'DM Sans', -apple-system, sans-serif;
-      font-size: 13px; margin: 0; padding: 16px;
+      width: 280px;
+      background: #07111f; color: #e2eaf5;
+      font-family: 'Sora', -apple-system, sans-serif;
+      font-size: 13px; padding: 16px;
     }
-    .logo { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px; padding-bottom: 14px;
+      border-bottom: 1px solid #1a3158;
+    }
     .logo-icon {
-      width: 28px; height: 28px; border-radius: 7px;
-      background: linear-gradient(135deg, #00c2a8, #0066cc);
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, #00d4b8, #0066cc);
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+      font-size: 17px; flex-shrink: 0;
     }
-    .logo-text { font-size: 14px; font-weight: 600; }
-    .status-row {
+    .logo-text { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+    .logo-ver  { font-size: 10px; color: #5a7a9e; margin-top: 1px; }
+
+    .status-pill {
       display: flex; align-items: center; gap: 8px;
-      background: rgba(0,194,168,0.1);
-      border: 1px solid rgba(0,194,168,0.25);
-      border-radius: 8px; padding: 10px 12px;
-      margin-bottom: 12px;
+      background: rgba(0,212,184,.1); border: 1px solid rgba(0,212,184,.2);
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
     }
-    .dot {
+    .status-dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: #00c2a8;
-      box-shadow: 0 0 6px #00c2a8;
-      animation: pulse 1.5s ease-in-out infinite;
+      background: #00d4b8; box-shadow: 0 0 6px #00d4b8;
+      animation: blink 2s ease-in-out infinite; flex-shrink: 0;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .status-text { font-size: 12px; font-weight: 500; color: #e2eaf5; }
+
+    .row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid #0f2040;
     }
-    .status-text { font-size: 12px; color: #7a91b3; }
-    .status-text b { color: #e8edf5; }
-    .info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f3660; }
-    .info-row:last-child { border-bottom: none; }
-    .info-label { color: #7a91b3; }
-    .info-val { font-weight: 500; }
-    .footer { margin-top: 14px; font-size: 11px; color: #7a91b3; text-align: center; }
+    .row:last-child { border-bottom: none; }
+    .row-label { color: #5a7a9e; font-size: 12px; }
+    .row-val   { font-weight: 600; font-size: 12px; }
+
+    .footer {
+      margin-top: 14px; padding-top: 12px;
+      border-top: 1px solid #1a3158;
+      font-size: 11px; color: #5a7a9e; text-align: center;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
-  <div class="logo">
+  <div class="header">
     <div class="logo-icon">🛡</div>
-    <div class="logo-text">Fraud Interceptor</div>
+    <div>
+      <div class="logo-text">Fraud Interceptor</div>
+      <div class="logo-ver">v2.0 · Extension Active</div>
+    </div>
   </div>
-  <div class="status-row">
-    <div class="dot"></div>
-    <div class="status-text">Protection <b>Active</b></div>
+
+  <div class="status-pill">
+    <div class="status-dot" id="status-dot"></div>
+    <div class="status-text">Protection <strong>Active</strong> on this tab</div>
   </div>
-  <div class="info-row">
-    <span class="info-label">Backend</span>
-    <span class="info-val" id="backend-status">Checking...</span>
+
+  <div class="row">
+    <span class="row-label">Backend API</span>
+    <span class="row-val" id="backend-status">Checking…</span>
   </div>
-  <div class="info-row">
-    <span class="info-label">Block threshold</span>
-    <span class="info-val">75%</span>
+  <div class="row">
+    <span class="row-label">Page Script</span>
+    <span class="row-val" id="page-status">Checking…</span>
   </div>
-  <div class="info-row">
-    <span class="info-label">Verify threshold</span>
-    <span class="info-val">50%</span>
+  <div class="row">
+    <span class="row-label">Block threshold</span>
+    <span class="row-val" id="block-val">75%</span>
   </div>
-  <div class="info-row">
-    <span class="info-label">History window</span>
-    <span class="info-val">Last 5 txns</span>
+  <div class="row">
+    <span class="row-label">Verify threshold</span>
+    <span class="row-val" id="verify-val">50%</span>
   </div>
-  <div class="footer">Intercepting all payment forms on this page.</div>
-  <script>
-    fetch('http://127.0.0.1:8000/health')
-      .then(r => r.json())
-      .then(() => {
-        document.getElementById('backend-status').textContent = '✅ Online';
-        document.getElementById('backend-status').style.color = '#4ade80';
-      })
-      .catch(() => {
-        document.getElementById('backend-status').textContent = '❌ Offline';
-        document.getElementById('backend-status').style.color = '#f87171';
-      });
-  </script>
+  <div class="row">
+    <span class="row-label">History window</span>
+    <span class="row-val">Last 5 txns</span>
+  </div>
+  <div class="row">
+    <span class="row-label">ML Model</span>
+    <span class="row-val" style="color:#fbbf24">Dummy (plug-in ready)</span>
+  </div>
+  <div class="row">
+    <span class="row-label">Rules Engine</span>
+    <span class="row-val" style="color:#fbbf24">Dummy (plug-in ready)</span>
+  </div>
+
+  <div class="footer">
+    Intercepts all payment forms.<br/>
+    Teammates: replace rule_engine.py + lstm_service.py
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

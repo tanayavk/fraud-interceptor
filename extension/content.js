@@ -1,285 +1,198 @@
 /**
- * Fraud Interceptor — Content Script
- * =====================================
- * Injected into the banking page by Chrome.
- * Intercepts the #pay-btn click, contacts the backend,
- * and shows a styled risk modal before allowing payment.
+ * Fraud Interceptor — Content Script v2
+ * ========================================
+ * Injected into every page matching the manifest's content_scripts.
  *
- * Works with mock-bank/index.html out of the box.
- * For real banking sites: change the selectors in SELECTORS below.
+ * Strategy:
+ *   1. Detect the pay button and intercept form submit (capture phase)
+ *   2. Call the fraud backend
+ *   3. Fire a 'fraudResult' CustomEvent on the document
+ *   4. script.js receives the event via waitForExtension() and drives the UI
+ *
+ * This keeps the extension and the page code cleanly decoupled.
+ * The extension NEVER touches the DOM for modals — script.js owns the UI.
+ *
+ * For non-SecureBank sites: the extension falls back to its own
+ * injected modal (modal.css handles styling for that).
  */
 
 'use strict';
 
-// ── Configuration ────────────────────────────────────────────────────────
 const CONFIG = {
   BACKEND_URL : 'http://127.0.0.1:8000/risk',
-  USER_ID     : 'demo_user',          // change to session-based ID in prod
-  TIMEOUT_MS  : 5000,                 // max wait for backend
+  USER_ID     : 'demo_user',
+  TIMEOUT_MS  : 5000,
 };
 
-// ── DOM Selectors — change these to match real banking sites ──────────────
 const SELECTORS = {
-  PAY_BUTTON : '#pay-btn',
-  AMOUNT     : '#amount',
-  RECIPIENT  : '#recipient',
-  FORM       : '#pay-form',
+  FORM      : '#pay-form',
+  PAY_BTN   : '#pay-btn',
+  AMOUNT    : '#amount',
+  RECIPIENT : '#recipient',
 };
 
-// ── State ────────────────────────────────────────────────────────────────
-let interceptActive = false;     // prevent double-click during processing
-let pendingResolve  = null;      // resolves when user clicks modal button
+let intercepting = false;
 
-// ════════════════════════════════════════════════════════════════════════
-//  MAIN INTERCEPT
-// ════════════════════════════════════════════════════════════════════════
-
-function attachInterceptor() {
-  const payBtn = document.querySelector(SELECTORS.PAY_BUTTON);
-  if (!payBtn) {
-    // Page not ready yet — retry
-    setTimeout(attachInterceptor, 500);
-    return;
-  }
-
-  // Override the form's default submit behaviour
+/* ── Attach ────────────────────────────────────────────────────── */
+function attach() {
   const form = document.querySelector(SELECTORS.FORM);
-  if (form) {
-    form.addEventListener('submit', onPayAttempt, true);  // capture phase
-  }
+  if (!form) { setTimeout(attach, 500); return; }
 
-  // Also cover direct button clicks
-  payBtn.addEventListener('click', e => {
-    if (interceptActive) { e.preventDefault(); e.stopPropagation(); }
-  }, true);
-
-  console.log('[FraudInterceptor] Attached to pay button.');
+  form.addEventListener('submit', onSubmit, true);  // capture phase — fires first
+  console.log('[FraudInterceptor] Attached to #pay-form');
 }
 
-async function onPayAttempt(e) {
+async function onSubmit(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
 
-  if (interceptActive) return;
-  interceptActive = true;
+  if (intercepting) return;
 
-  const amount    = getFieldValue(SELECTORS.AMOUNT);
-  const recipient = getFieldValue(SELECTORS.RECIPIENT);
+  const amount    = parseFloat(document.querySelector(SELECTORS.AMOUNT)?.value || '0');
+  const recipient = (document.querySelector(SELECTORS.RECIPIENT)?.value || '').trim();
 
-  // Basic local validation before hitting backend
-  if (!recipient || !amount || parseFloat(amount) <= 0) {
-    interceptActive = false;
-    return;   // let the page's own validation handle this
-  }
-
-  // Set UI to loading
-  setPayButtonLoading(true);
-
-  // Call backend
-  let riskData;
-  try {
-    riskData = await fetchRiskScore(amount, recipient);
-  } catch (err) {
-    console.warn('[FraudInterceptor] Backend unreachable, defaulting to VERIFY:', err);
-    riskData = {
-      risk_score : 0.5,
-      action     : 'VERIFY',
-      reasons    : ['Could not reach fraud detection server. Proceed with caution.'],
-    };
-  }
-
-  setPayButtonLoading(false);
-
-  // ── ALLOW: silent pass-through ──────────────────────────────────────
-  if (riskData.action === 'ALLOW') {
-    console.log('[FraudInterceptor] ALLOW — passing through.');
-    interceptActive = false;
-    // Call the page's handleFraudResponse if it exists, else just submit
-    if (typeof window.handleFraudResponse === 'function') {
-      window.handleFraudResponse(riskData, parseFloat(amount), recipient);
-    }
+  if (!recipient || !amount || amount <= 0) {
+    // Let script.js handle its own validation — re-fire without capturing
+    intercepting = true;
+    form_element.removeEventListener('submit', onSubmit, true);
+    e.target.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    intercepting = false;
+    attach();
     return;
   }
 
-  // ── VERIFY or BLOCK: show modal ─────────────────────────────────────
-  const userDecision = await showModal(riskData, amount, recipient);
+  // Show loading state (extension sets it, script.js also sets it)
+  setButtonState(true);
 
-  interceptActive = false;
+  let riskData;
+  try {
+    riskData = await callBackend(amount, recipient);
+  } catch (err) {
+    console.warn('[FraudInterceptor] Backend error — defaulting to VERIFY:', err);
+    riskData = {
+      risk_score : 0.5,
+      action     : 'VERIFY',
+      reasons    : ['Security service unreachable. Please verify manually.'],
+    };
+  }
 
-  if (userDecision === 'proceed') {
-    // User confirmed despite warning — let it through
-    if (typeof window.handleFraudResponse === 'function') {
-      window.handleFraudResponse(
-        { risk_score: riskData.risk_score, action: 'ALLOW', reasons: [] },
-        parseFloat(amount), recipient
-      );
-    }
+  setButtonState(false);
+
+  // Check if the page has the SecureBank script loaded (preferred UI handler)
+  if (window.fraudInterceptorReady) {
+    // Fire the event — script.js will pick it up via waitForExtension()
+    document.dispatchEvent(new CustomEvent('fraudResult', {
+      detail  : riskData,
+      bubbles : false,
+    }));
+    // Also re-fire submit so script.js's own handler processes it
+    // (it's listening with addEventListener, not capturing)
+    e.target.dispatchEvent(new Event('submit', { bubbles: true, cancelable: false }));
+
   } else {
-    // Blocked or user cancelled
-    if (typeof window.handleFraudResponse === 'function') {
-      window.handleFraudResponse(riskData, parseFloat(amount), recipient);
-    }
+    // Fallback: page has no script.js — show our own injected modal
+    showFallbackModal(riskData, amount, recipient);
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════
-//  BACKEND CALL
-// ════════════════════════════════════════════════════════════════════════
-
-async function fetchRiskScore(amount, recipient) {
+/* ── Backend call ──────────────────────────────────────────────── */
+async function callBackend(amount, recipient) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONFIG.TIMEOUT_MS);
 
-  const response = await fetch(CONFIG.BACKEND_URL, {
+  const res = await fetch(CONFIG.BACKEND_URL, {
     method  : 'POST',
     headers : { 'Content-Type': 'application/json' },
     body    : JSON.stringify({
       user_id   : CONFIG.USER_ID,
       amount    : parseFloat(amount),
       recipient : recipient,
+      timestamp : Date.now() / 1000,
     }),
     signal  : controller.signal,
   });
-
   clearTimeout(timer);
-
-  if (!response.ok) {
-    throw new Error(`Backend returned ${response.status}`);
-  }
-  return response.json();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
-// ════════════════════════════════════════════════════════════════════════
-//  MODAL
-// ════════════════════════════════════════════════════════════════════════
-
-function showModal(data, amount, recipient) {
-  return new Promise(resolve => {
-    pendingResolve = resolve;
-
-    const action     = data.action;      // "VERIFY" or "BLOCK"
-    const score      = data.risk_score;  // 0.0 – 1.0
-    const reasons    = data.reasons || [];
-    const pct        = Math.round(score * 100);
-
-    // ── Config per action ─────────────────────────────────────────
-    const cfg = {
-      BLOCK: {
-        icon      : '🚫',
-        title     : 'Transaction Blocked',
-        subtitle  : 'This transaction has been stopped for your security.',
-        cls       : 'fi-block',
-        scoreLabel: 'Risk Level: HIGH',
-        buttons   : `
-          <button class="fi-btn fi-btn-danger" onclick="fiClose('blocked')">Confirm Block</button>`,
-      },
-      VERIFY: {
-        icon      : '⚠️',
-        title     : 'Suspicious Transaction',
-        subtitle  : 'Please review before proceeding.',
-        cls       : 'fi-verify',
-        scoreLabel: 'Risk Level: MEDIUM',
-        buttons   : `
-          <button class="fi-btn fi-btn-ghost"   onclick="fiClose('cancelled')">Cancel Payment</button>
-          <button class="fi-btn fi-btn-warning"  onclick="fiClose('proceed')">Proceed Anyway</button>`,
-      },
-    };
-
-    const c = cfg[action] || cfg.VERIFY;
-
-    // ── Reason list HTML ──────────────────────────────────────────
-    const reasonsHtml = reasons.length
-      ? `<div class="fi-reasons-label">Why we flagged this</div>
-         <ul class="fi-reasons">${reasons.map(r => `<li>${r}</li>`).join('')}</ul>`
-      : `<p class="fi-no-reasons">Automated risk signals detected.</p>`;
-
-    // ── Transaction summary ───────────────────────────────────────
-    const summary = `
-      <div class="fi-score-row">
-        <div>
-          <div class="fi-score-label">${c.scoreLabel}</div>
-          <div style="font-size:12px;color:#c5d1e8;margin-top:4px;">
-            ₹${parseFloat(amount).toLocaleString('en-IN')} → ${recipient}
-          </div>
-          <div class="fi-bar-bg"><div class="fi-bar-fill" style="width:${pct}%"></div></div>
-        </div>
-        <div class="fi-score-value">${pct}%</div>
-      </div>`;
-
-    // ── Build modal HTML ──────────────────────────────────────────
-    const overlay = document.createElement('div');
-    overlay.id = 'fi-overlay';
-    overlay.innerHTML = `
-      <div id="fi-modal">
-        <div id="fi-header" class="${c.cls}">
-          <div id="fi-icon">${c.icon}</div>
-          <div>
-            <div id="fi-title">${c.title}</div>
-            <div id="fi-subtitle">${c.subtitle}</div>
-          </div>
-        </div>
-        <div id="fi-body" class="${c.cls}">
-          ${summary}
-          ${reasonsHtml}
-        </div>
-        <div id="fi-footer">${c.buttons}</div>
-      </div>`;
-
-    document.body.appendChild(overlay);
-
-    // Close on overlay click (only for VERIFY, not BLOCK)
-    if (action === 'VERIFY') {
-      overlay.addEventListener('click', e => {
-        if (e.target === overlay) fiClose('cancelled');
-      });
-    }
-
-    // Keyboard: Escape to cancel
-    document.addEventListener('keydown', onEsc);
-  });
-}
-
-function fiClose(decision) {
-  const overlay = document.getElementById('fi-overlay');
-  if (overlay) overlay.remove();
-  document.removeEventListener('keydown', onEsc);
-  if (pendingResolve) {
-    pendingResolve(decision);
-    pendingResolve = null;
-  }
-}
-
-function onEsc(e) {
-  if (e.key === 'Escape') fiClose('cancelled');
-}
-
-// Expose to inline onclick handlers in the injected HTML
-window.fiClose = fiClose;
-
-// ════════════════════════════════════════════════════════════════════════
-//  UTILITIES
-// ════════════════════════════════════════════════════════════════════════
-
-function getFieldValue(selector) {
-  const el = document.querySelector(selector);
-  return el ? el.value.trim() : '';
-}
-
-function setPayButtonLoading(on) {
-  const btn = document.querySelector(SELECTORS.PAY_BUTTON);
+/* ── Loading state ─────────────────────────────────────────────── */
+function setButtonState(loading) {
+  const btn = document.querySelector(SELECTORS.PAY_BTN);
   if (!btn) return;
-  btn.disabled = on;
-  const textEl = btn.querySelector('#btn-text');
-  const spinEl = btn.querySelector('#btn-spinner');
-  if (textEl) textEl.textContent = on ? 'Checking security...' : 'Pay Now ↗';
-  if (spinEl) spinEl.style.display = on ? 'block' : 'none';
+  btn.disabled = loading;
+  const label = btn.querySelector('#btn-text') || btn.querySelector('.btn-label');
+  const spinner = btn.querySelector('#btn-spinner') || btn.querySelector('.btn-loader');
+  if (label)   label.textContent = loading ? 'Checking security...' : 'Pay Now';
+  if (spinner) spinner.style.display = loading ? 'block' : 'none';
+  btn.classList.toggle('loading', loading);
 }
 
-// ════════════════════════════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════════════════════════════
+/* ── Fallback modal (for non-SecureBank pages) ─────────────────── */
+function showFallbackModal(data, amount, recipient) {
+  const pct    = Math.round(data.risk_score * 100);
+  const action = data.action;
+  const reasons = data.reasons || [];
+
+  const cfg = {
+    ALLOW  : { icon:'✅', cls:'fi-allow',  title:'Transaction Approved',     btnHtml:`<button class="fi-btn fi-btn-success" onclick="fiClose('proceed')">Proceed</button>` },
+    VERIFY : { icon:'⚠️', cls:'fi-verify', title:'Verification Recommended', btnHtml:`<button class="fi-btn fi-btn-ghost" onclick="fiClose('cancel')">Cancel</button><button class="fi-btn fi-btn-warning" onclick="fiClose('proceed')">Proceed Anyway</button>` },
+    BLOCK  : { icon:'🚫', cls:'fi-block',  title:'Transaction Blocked',      btnHtml:`<button class="fi-btn fi-btn-danger" onclick="fiClose('block')">Understood</button>` },
+  };
+  const c = cfg[action] || cfg.VERIFY;
+
+  const existing = document.getElementById('fi-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'fi-overlay';
+  overlay.innerHTML = `
+    <div id="fi-modal">
+      <div id="fi-header" class="${c.cls}">
+        <div id="fi-icon">${c.icon}</div>
+        <div>
+          <div id="fi-title">${c.title}</div>
+          <div id="fi-subtitle">₹${parseFloat(amount).toLocaleString('en-IN')} → ${recipient}</div>
+        </div>
+      </div>
+      <div id="fi-body" class="${c.cls}">
+        <div class="fi-score-row">
+          <div>
+            <div class="fi-score-label">Risk Score</div>
+            <div class="fi-bar-bg"><div class="fi-bar-fill" style="width:${pct}%"></div></div>
+          </div>
+          <div class="fi-score-value">${pct}%</div>
+        </div>
+        ${reasons.length ? `<div class="fi-reasons-label">Flags</div><ul class="fi-reasons">${reasons.map(r=>`<li>${r}</li>`).join('')}</ul>` : ''}
+      </div>
+      <div id="fi-footer">${c.btnHtml}</div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  window.fiClose = function(decision) {
+    overlay.remove();
+    if (decision === 'proceed') {
+      // Re-submit form bypassing intercept
+      const form = document.querySelector(SELECTORS.FORM);
+      if (form) {
+        const fakeSubmit = form.onsubmit;
+        form.onsubmit = null;
+        form.submit?.();
+        form.onsubmit = fakeSubmit;
+      }
+    }
+  };
+
+  if (action === 'VERIFY') {
+    overlay.addEventListener('click', e => { if (e.target === overlay) fiClose('cancel'); });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fiClose('cancel'); }, { once: true });
+}
+
+/* ── Init ──────────────────────────────────────────────────────── */
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', attachInterceptor);
+  document.addEventListener('DOMContentLoaded', attach);
 } else {
-  attachInterceptor();
+  attach();
 }

@@ -1,24 +1,50 @@
 {
   "manifest_version": 3,
   "name": "Fraud Interceptor",
-  "version": "1.0",
-  "description": "Real-time fraud prevention for net banking transactions.",
-  "permissions": ["activeTab", "scripting"],
+  "version": "2.0",
+  "description": "Real-time fraud prevention — intercepts payments before execution.",
+
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
   "host_permissions": [
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
-    "file:///*"
+    "file:///*",
+    "http://127.0.0.1:*/*",
+    "http://localhost:*/*"
   ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
   "content_scripts": [
     {
-      "matches": ["file:///*", "http://127.0.0.1:*/*", "http://localhost:*/*"],
-      "js": ["content.js"],
+      "matches": [
+        "file:///*",
+        "http://127.0.0.1:*/*",
+        "http://localhost:*/*"
+      ],
+      "js":  ["content.js"],
       "css": ["modal.css"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
+
   "action": {
     "default_popup": "popup.html",
     "default_title": "Fraud Interceptor"
-  }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["modal.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

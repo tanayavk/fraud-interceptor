@@ -1,616 +1,346 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SecureBank — Net Banking</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-  <style>
-    /* ── Reset & Base ─────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --navy:    #0b1f3a;
-      --navy2:   #112545;
-      --teal:    #00c2a8;
-      --teal2:   #00a891;
-      --slate:   #1e3255;
-      --card:    #16294a;
-      --border:  #1f3660;
-      --text:    #e8edf5;
-      --muted:   #7a91b3;
-      --green:   #22c55e;
-      --yellow:  #f59e0b;
-      --red:     #ef4444;
-      --radius:  14px;
-    }
-
-    html, body {
-      height: 100%;
-      background: var(--navy);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 15px;
-    }
-
-    /* ── Layout ───────────────────────────────────────────────── */
-    .shell {
-      display: grid;
-      grid-template-rows: 60px 1fr;
-      min-height: 100vh;
-    }
-
-    /* ── Top Nav ──────────────────────────────────────────────── */
-    nav {
-      background: var(--navy2);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      position: sticky; top: 0; z-index: 10;
-    }
-    .logo {
-      display: flex; align-items: center; gap: 10px;
-      font-weight: 600; font-size: 17px; letter-spacing: -0.3px;
-    }
-    .logo-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      background: linear-gradient(135deg, var(--teal), #0066cc);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
-    }
-    .nav-right {
-      display: flex; align-items: center; gap: 16px;
-    }
-    .nav-user {
-      font-size: 13px; color: var(--muted);
-    }
-    .nav-user span { color: var(--text); font-weight: 500; }
-    .badge {
-      background: var(--teal); color: #000;
-      font-size: 11px; font-weight: 600;
-      padding: 3px 8px; border-radius: 20px;
-    }
-
-    /* ── Main ─────────────────────────────────────────────────── */
-    main {
-      display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 0;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px;
-      width: 100%;
-    }
-
-    /* ── Sidebar ──────────────────────────────────────────────── */
-    .sidebar { padding-right: 28px; }
-
-    .balance-card {
-      background: linear-gradient(135deg, #0d3b6e 0%, #1a5276 100%);
-      border: 1px solid #1e4d7b;
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 20px;
-      position: relative; overflow: hidden;
-    }
-    .balance-card::before {
-      content: '';
-      position: absolute; top: -30px; right: -30px;
-      width: 120px; height: 120px;
-      border-radius: 50%;
-      background: rgba(0,194,168,0.08);
-    }
-    .balance-label { font-size: 12px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
-    .balance-amount { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--text); }
-    .balance-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .balance-chip {
-      display: inline-flex; align-items: center; gap: 5px;
-      margin-top: 14px; background: rgba(0,194,168,0.15);
-      border: 1px solid rgba(0,194,168,0.3); border-radius: 6px;
-      padding: 4px 10px; font-size: 12px; color: var(--teal);
-    }
-
-    .sidebar-menu { list-style: none; }
-    .sidebar-menu li a {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 8px;
-      color: var(--muted); text-decoration: none;
-      font-size: 14px; transition: all 0.15s;
-    }
-    .sidebar-menu li a:hover,
-    .sidebar-menu li a.active {
-      background: var(--slate);
-      color: var(--text);
-    }
-    .sidebar-menu li a.active { color: var(--teal); }
-    .menu-icon { font-size: 16px; width: 20px; text-align: center; }
-
-    /* ── Content ──────────────────────────────────────────────── */
-    .content { min-width: 0; }
-
-    .page-title {
-      font-size: 20px; font-weight: 600;
-      margin-bottom: 4px;
-    }
-    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
-
-    /* ── Cards ────────────────────────────────────────────────── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 20px;
-    }
-    .card-title {
-      font-size: 13px; font-weight: 600;
-      letter-spacing: 0.5px; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 20px;
-    }
-
-    /* ── Form ─────────────────────────────────────────────────── */
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label {
-      display: block; font-size: 13px;
-      color: var(--muted); margin-bottom: 6px;
-    }
-    .form-group input, .form-group select {
-      width: 100%;
-      background: var(--navy2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 15px;
-      padding: 11px 14px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .form-group input:focus, .form-group select:focus {
-      border-color: var(--teal);
-    }
-    .form-group input[type="number"] {
-      font-family: 'DM Mono', monospace;
-    }
-    .rupee-wrap { position: relative; }
-    .rupee-wrap::before {
-      content: '₹';
-      position: absolute; left: 13px; top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted); font-size: 15px;
-    }
-    .rupee-wrap input { padding-left: 28px; }
-
-    .quick-amounts {
-      display: flex; gap: 8px; flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .qa-btn {
-      background: var(--slate); border: 1px solid var(--border);
-      color: var(--muted); border-radius: 6px;
-      padding: 5px 12px; font-size: 12px;
-      cursor: pointer; transition: all 0.15s;
-      font-family: 'DM Mono', monospace;
-    }
-    .qa-btn:hover { border-color: var(--teal); color: var(--teal); }
-
-    .pay-btn {
-      width: 100%; padding: 13px;
-      background: var(--teal);
-      color: #001a14; font-weight: 600;
-      font-size: 15px; border: none;
-      border-radius: 10px; cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: background 0.2s, transform 0.1s;
-      margin-top: 6px;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .pay-btn:hover { background: var(--teal2); }
-    .pay-btn:active { transform: scale(0.98); }
-    .pay-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-
-    /* ── Status Banner ────────────────────────────────────────── */
-    .status-banner {
-      display: none;
-      border-radius: 10px;
-      padding: 14px 18px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      font-weight: 500;
-      border: 1px solid;
-      animation: slideIn 0.3s ease;
-    }
-    .status-banner.success {
-      display: flex; align-items: center; gap: 10px;
-      background: rgba(34,197,94,0.1);
-      border-color: rgba(34,197,94,0.3);
-      color: #4ade80;
-    }
-    .status-banner.blocked {
-      display: flex; align-items: center; gap: 10px;
-      background: rgba(239,68,68,0.1);
-      border-color: rgba(239,68,68,0.3);
-      color: #f87171;
-    }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Transaction History ──────────────────────────────────── */
-    .txn-list { list-style: none; }
-    .txn-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .txn-item:last-child { border-bottom: none; }
-    .txn-left { display: flex; align-items: center; gap: 12px; }
-    .txn-avatar {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: var(--slate);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; flex-shrink: 0;
-    }
-    .txn-name { font-size: 14px; font-weight: 500; }
-    .txn-upi { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .txn-right { text-align: right; }
-    .txn-amount {
-      font-family: 'DM Mono', monospace;
-      font-size: 14px; font-weight: 500;
-    }
-    .txn-amount.debit { color: #f87171; }
-    .txn-amount.credit { color: #4ade80; }
-    .txn-time { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .txn-status {
-      display: inline-block; font-size: 10px;
-      padding: 2px 7px; border-radius: 4px;
-      font-weight: 600; letter-spacing: 0.3px;
-      margin-top: 3px;
-    }
-    .txn-status.success { background: rgba(34,197,94,0.15); color: #4ade80; }
-    .txn-status.blocked { background: rgba(239,68,68,0.15); color: #f87171; }
-    .txn-status.pending { background: rgba(245,158,11,0.15); color: #fbbf24; }
-
-    /* ── Presets ──────────────────────────────────────────────── */
-    .preset-list {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 10px; margin-bottom: 16px;
-    }
-    .preset-item {
-      background: var(--slate); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 12px;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .preset-item:hover { border-color: var(--teal); }
-    .preset-name { font-size: 13px; font-weight: 500; }
-    .preset-upi { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-    .section-label {
-      font-size: 12px; color: var(--muted);
-      font-weight: 600; letter-spacing: 0.5px;
-      text-transform: uppercase; margin-bottom: 10px;
-    }
-
-    /* ── Spinner ──────────────────────────────────────────────── */
-    .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(0,0,0,0.2);
-      border-top-color: #001a14;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      display: none;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-<div class="shell">
 
-  <!-- NAV -->
-  <nav>
-    <div class="logo">
-      <div class="logo-icon">🏦</div>
-      SecureBank
+<!-- ═══════════════════════════════════════════════════ LOGIN SCREEN -->
+<!-- <div id="screen-login" class="screen active">
+  <div class="login-bg">
+    <div class="login-grid"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-icon">🏦</div>
+      <div class="brand-name">SecureBank</div>
+      <div class="brand-tag">Net Banking Portal</div>
     </div>
-    <div class="nav-right">
-      <span class="nav-user">Welcome, <span>Tanaya K</span></span>
-      <span class="badge">SAVINGS</span>
+    <form id="login-form" novalidate>
+      <div class="field-group">
+        <label for="login-user">Customer ID</label>
+        <input type="text" id="login-user" value="SBNK00004821" autocomplete="off"/>
+      </div>
+      <div class="field-group">
+        <label for="login-pass">Password</label>
+        <input type="password" id="login-pass" value="••••••••" autocomplete="off"/>
+        <div class="field-hint">Pre-filled for demo</div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="login-btn">
+        <span class="btn-label">Login Securely</span>
+        <span class="btn-loader"></span>
+      </button>
+    </form>
+    <div class="login-security">
+      <span class="sec-dot"></span>
+      256-bit SSL Encrypted · RBI Compliant
     </div>
-  </nav>
+  </div>
+</div> -->
 
-  <!-- MAIN -->
-  <main>
+<!-- ═══════════════════════════════════════════════════ DASHBOARD -->
+<section id="screen-dashboard" class="screen active">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="balance-card">
-        <div class="balance-label">Available Balance</div>
-        <div class="balance-amount" id="balance-display">₹ 84,250.00</div>
-        <div class="balance-sub">A/C •••• •••• 4821</div>
-        <div class="balance-chip">✓ Account Active</div>
+  <!-- TOP NAV -->
+  <header class="topnav">
+    <div class="topnav-left">
+      <div class="nav-brand">
+        <div class="brand-icon sm">🏦</div>
+        <span>SecureBank</span>
+      </div>
+    </div>
+    <nav class="topnav-center" id="main-nav">
+      <a href="#" class="nav-link active" data-tab="transfer">Transfer</a>
+      <a href="#" class="nav-link" data-tab="history">History</a>
+      <a href="#" class="nav-link" data-tab="accounts">Accounts</a>
+    </nav>
+    <div class="topnav-right">
+      <div class="nav-user-badge">
+        <div class="user-avatar">TK</div>
+        <div class="user-info">
+          <div class="user-name">Tanaya K</div>
+          <div class="user-id">SBNK00004821</div>
+        </div>
+      </div>
+      <button class="btn-ghost btn-sm" id="logout-btn">Logout</button>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="dashboard-main">
+
+    <!-- ── TRANSFER TAB ─────────────────────────────── -->
+    <section id="tab-transfer" class="tab-section active">
+
+      <div class="section-header">
+        <h1>Fund Transfer</h1>
+        <p>UPI · NEFT · IMPS — Instant, 24×7</p>
       </div>
 
-      <ul class="sidebar-menu">
-        <li><a href="#" class="active"><span class="menu-icon">↗</span> Transfer Money</a></li>
-        <li><a href="#"><span class="menu-icon">📋</span> Statement</a></li>
-        <li><a href="#"><span class="menu-icon">💳</span> Cards</a></li>
-        <li><a href="#"><span class="menu-icon">⚙</span> Settings</a></li>
-      </ul>
-    </aside>
+      <div class="dashboard-grid">
 
-    <!-- CONTENT -->
-    <div class="content">
-      <div class="page-title">Transfer Money</div>
-      <div class="page-sub">UPI / NEFT / IMPS — Instant transfer, 24×7</div>
+        <!-- LEFT COLUMN -->
+        <div class="col-left">
 
-      <!-- STATUS BANNER -->
-      <div class="status-banner" id="status-banner"></div>
+          <!-- Balance Card -->
+          <div class="balance-card">
+            <div class="balance-card-bg"></div>
+            <div class="balance-card-content">
+              <div class="balance-top">
+                <div>
+                  <div class="balance-label">Savings Account</div>
+                  <div class="balance-acct">•••• •••• 4821</div>
+                </div>
+                <div class="balance-chip">ACTIVE</div>
+              </div>
+              <div class="balance-amount" id="balance-display">₹ 84,250.00</div>
+              <div class="balance-bottom">
+                <div class="balance-stat">
+                  <div class="stat-label">This Month</div>
+                  <div class="stat-val debit" id="month-debit">− ₹14,299</div>
+                </div>
+                <div class="balance-divider"></div>
+                <div class="balance-stat">
+                  <div class="stat-label">Credited</div>
+                  <div class="stat-val credit">+ ₹65,000</div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <!-- QUICK CONTACTS -->
+          <!-- Quick Contacts -->
+          <div class="card">
+            <div class="card-head">Frequent Contacts</div>
+            <div class="contact-grid" id="contact-grid">
+              <!-- Populated by script.js -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col-right">
+
+          <!-- Status Banner -->
+          <div id="status-banner" class="status-banner hidden"></div>
+
+          <!-- Transfer Form -->
+          <div class="card" id="transfer-card">
+            <div class="card-head">New Transfer</div>
+            <form id="pay-form" novalidate>
+
+              <div class="form-row">
+                <div class="field-group">
+                  <label for="recipient">Recipient UPI ID</label>
+                  <input type="text" id="recipient" placeholder="name@bankname" autocomplete="off" spellcheck="false"/>
+                  <div class="field-error" id="err-recipient"></div>
+                </div>
+              </div>
+
+              <div class="form-row two-col">
+                <div class="field-group">
+                  <label for="amount">Amount (₹)</label>
+                  <div class="input-prefix-wrap">
+                    <span class="input-prefix">₹</span>
+                    <input type="number" id="amount" placeholder="0.00" min="1" max="200000" step="1"/>
+                  </div>
+                  <div class="field-error" id="err-amount"></div>
+                </div>
+                <div class="field-group">
+                  <label for="txn-type">Transfer Mode</label>
+                  <select id="txn-type">
+                    <option value="UPI">UPI</option>
+                    <option value="NEFT">NEFT</option>
+                    <option value="IMPS">IMPS</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label for="remarks">Remarks <span class="optional">(optional)</span></label>
+                <input type="text" id="remarks" placeholder="e.g. Rent, Groceries, EMI"/>
+              </div>
+
+              <div class="quick-amounts">
+                <span class="qa-label">Quick Select:</span>
+                <button type="button" class="qa-chip" data-amt="500">₹500</button>
+                <button type="button" class="qa-chip" data-amt="1000">₹1,000</button>
+                <button type="button" class="qa-chip" data-amt="5000">₹5,000</button>
+                <button type="button" class="qa-chip" data-amt="10000">₹10,000</button>
+                <button type="button" class="qa-chip" data-amt="50000">₹50,000</button>
+              </div>
+
+              <!--
+                EXTENSION HOOK:
+                extension/content.js intercepts this button's click at capture phase.
+                It calls the backend and fires a custom 'fraudResult' event.
+                script.js listens for that event and drives the OTP / block UI.
+                If no extension is loaded, script.js calls the backend directly.
+              -->
+              <button type="submit" class="btn-primary btn-full" id="pay-btn">
+                <span class="btn-label">Pay Now</span>
+                <span class="btn-loader"></span>
+              </button>
+
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── HISTORY TAB ─────────────────────────────── -->
+    <section id="tab-history" class="tab-section">
+      <div class="section-header">
+        <h1>Transaction History</h1>
+        <p>Last 30 days activity</p>
+      </div>
       <div class="card">
-        <div class="card-title">Frequent Contacts</div>
-        <div class="preset-list">
-          <div class="preset-item" onclick="fillPreset('Rahul Sharma','rahul.sharma@okaxis')">
-            <div class="txn-avatar" style="display:inline-flex;width:28px;height:28px;font-size:12px;border-radius:50%;background:var(--slate);align-items:center;justify-content:center;margin-right:6px;">👤</div>
-            <span class="preset-name">Rahul Sharma</span>
-            <div class="preset-upi">rahul.sharma@okaxis</div>
-          </div>
-          <div class="preset-item" onclick="fillPreset('Priya Mehta','priyam@ybl')">
-            <div class="preset-name">Priya Mehta</div>
-            <div class="preset-upi">priyam@ybl</div>
-          </div>
-          <div class="preset-item" onclick="fillPreset('Amazon Pay','amazon@apl')">
-            <div class="preset-name">Amazon Pay</div>
-            <div class="preset-upi">amazon@apl</div>
-          </div>
-          <div class="preset-item" onclick="fillPreset('Unknown Merchant','newmerchant99@paytm')">
-            <div class="preset-name" style="color:#fbbf24">⚠ Unknown</div>
-            <div class="preset-upi">newmerchant99@paytm</div>
-          </div>
+        <div class="history-filters">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="success">Success</button>
+          <button class="filter-btn" data-filter="blocked">Blocked</button>
+          <button class="filter-btn" data-filter="pending">Pending</button>
+        </div>
+        <ul class="txn-list" id="txn-list">
+          <!-- Populated by script.js -->
+        </ul>
+        <div class="txn-empty hidden" id="txn-empty">No transactions found.</div>
+      </div>
+    </section>
+
+    <!-- ── ACCOUNTS TAB ─────────────────────────────── -->
+    <section id="tab-accounts" class="tab-section">
+      <div class="section-header">
+        <h1>My Accounts</h1>
+        <p>Linked accounts overview</p>
+      </div>
+      <div class="accounts-grid">
+        <div class="account-card primary">
+          <div class="acct-type">Savings Account</div>
+          <div class="acct-num">•••• •••• 4821</div>
+          <div class="acct-bal" id="acct-bal-savings">₹ 84,250.00</div>
+          <div class="acct-bank">IFSC: SBNK0004821</div>
+        </div>
+        <div class="account-card">
+          <div class="acct-type">Fixed Deposit</div>
+          <div class="acct-num">•••• •••• 7743</div>
+          <div class="acct-bal">₹ 2,00,000.00</div>
+          <div class="acct-bank">Matures: Dec 2025</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ OTP MODAL -->
+<div id="otp-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal otp-modal">
+    <div class="modal-header verify">
+      <div class="modal-icon">🔐</div>
+      <div>
+        <div class="modal-title">Verify Transaction</div>
+        <div class="modal-sub">Enter the OTP sent to your registered mobile</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="otp-txn-summary" id="otp-txn-summary"></div>
+
+      <!-- Simulated SMS preview -->
+      <div class="sms-preview">
+        <div class="sms-header">
+          <span class="sms-dot"></span>
+          <span class="sms-from">SB-SECBNK</span>
+          <span class="sms-time" id="sms-time">Just now</span>
+        </div>
+        <div class="sms-body" id="sms-body">
+          <!-- Populated by script.js -->
         </div>
       </div>
 
-      <!-- TRANSFER FORM -->
-      <div class="card">
-        <div class="card-title">New Transfer</div>
-        <form id="pay-form" onsubmit="return false;">
-          <div class="form-group">
-            <label>Recipient UPI ID</label>
-            <input type="text" id="recipient" placeholder="name@bank" autocomplete="off" required />
-          </div>
-          <div class="form-group">
-            <label>Amount</label>
-            <div class="rupee-wrap">
-              <input type="number" id="amount" placeholder="0.00" min="1" max="200000" step="0.01" required />
-            </div>
-          </div>
-          <div class="quick-amounts">
-            <span class="section-label" style="align-self:center;margin-bottom:0;margin-right:4px;">Quick:</span>
-            <button type="button" class="qa-btn" onclick="setAmount(500)">₹500</button>
-            <button type="button" class="qa-btn" onclick="setAmount(1000)">₹1,000</button>
-            <button type="button" class="qa-btn" onclick="setAmount(5000)">₹5,000</button>
-            <button type="button" class="qa-btn" onclick="setAmount(10000)">₹10,000</button>
-            <button type="button" class="qa-btn" onclick="setAmount(50000)">₹50,000</button>
-          </div>
-          <div class="form-group">
-            <label>Remarks (optional)</label>
-            <input type="text" id="remarks" placeholder="e.g. Rent, Groceries" />
-          </div>
-          <!--
-            EXTENSION HOOK:
-            The extension's content.js intercepts this button click.
-            It reads #amount, #recipient, calls the backend,
-            and either blocks or allows the form to proceed.
-          -->
-          <button type="submit" class="pay-btn" id="pay-btn">
-            <span id="btn-text">Pay Now ↗</span>
-            <div class="spinner" id="btn-spinner"></div>
-          </button>
-        </form>
+      <!-- OTP inputs -->
+      <div class="otp-label">Enter 6-digit OTP</div>
+      <div class="otp-inputs" id="otp-inputs">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0"/>
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1"/>
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2"/>
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3"/>
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4"/>
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5"/>
+      </div>
+      <div class="otp-error hidden" id="otp-error">Incorrect OTP. Please try again.</div>
+
+      <div class="otp-timer-row">
+        <span id="otp-timer-text">Resend in <b id="otp-countdown">02:00</b></span>
+        <button type="button" class="btn-link hidden" id="resend-btn">Resend OTP</button>
       </div>
 
-      <!-- TRANSACTION HISTORY -->
-      <div class="card">
-        <div class="card-title">Recent Transactions</div>
-        <ul class="txn-list" id="txn-history">
-          <!-- Preloaded sample history -->
-          <li class="txn-item">
-            <div class="txn-left">
-              <div class="txn-avatar">👤</div>
-              <div>
-                <div class="txn-name">Rahul Sharma</div>
-                <div class="txn-upi">rahul.sharma@okaxis</div>
-              </div>
-            </div>
-            <div class="txn-right">
-              <div class="txn-amount debit">− ₹1,500</div>
-              <div class="txn-time">Today, 10:24 AM</div>
-              <span class="txn-status success">SUCCESS</span>
-            </div>
-          </li>
-          <li class="txn-item">
-            <div class="txn-left">
-              <div class="txn-avatar">🛒</div>
-              <div>
-                <div class="txn-name">Amazon Pay</div>
-                <div class="txn-upi">amazon@apl</div>
-              </div>
-            </div>
-            <div class="txn-right">
-              <div class="txn-amount debit">− ₹3,299</div>
-              <div class="txn-time">Yesterday, 3:15 PM</div>
-              <span class="txn-status success">SUCCESS</span>
-            </div>
-          </li>
-          <li class="txn-item">
-            <div class="txn-left">
-              <div class="txn-avatar">❓</div>
-              <div>
-                <div class="txn-name">Unknown Merchant</div>
-                <div class="txn-upi">suspicious@xpay</div>
-              </div>
-            </div>
-            <div class="txn-right">
-              <div class="txn-amount debit">− ₹25,000</div>
-              <div class="txn-time">2 days ago, 2:47 AM</div>
-              <span class="txn-status blocked">BLOCKED</span>
-            </div>
-          </li>
-          <li class="txn-item">
-            <div class="txn-left">
-              <div class="txn-avatar">💰</div>
-              <div>
-                <div class="txn-name">Salary Credit</div>
-                <div class="txn-upi">employer@hdfcbank</div>
-              </div>
-            </div>
-            <div class="txn-right">
-              <div class="txn-amount credit">+ ₹65,000</div>
-              <div class="txn-time">Apr 30, 9:00 AM</div>
-              <span class="txn-status success">SUCCESS</span>
-            </div>
-          </li>
-        </ul>
-      </div>
+      <div class="risk-info" id="risk-info"></div>
     </div>
-  </main>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" id="otp-cancel-btn">Cancel Payment</button>
+      <button type="button" class="btn-primary" id="otp-verify-btn">
+        <span class="btn-label">Verify & Pay</span>
+        <span class="btn-loader"></span>
+      </button>
+    </div>
+  </div>
 </div>
 
-<script>
-  // ── Helpers ────────────────────────────────────────────────────────────
-  const $ = id => document.getElementById(id);
-
-  function setAmount(val) {
-    $('amount').value = val;
-    $('amount').focus();
-  }
-
-  function fillPreset(name, upi) {
-    $('recipient').value = upi;
-    $('amount').focus();
-  }
-
-  // ── Show status banner ─────────────────────────────────────────────────
-  function showStatus(type, icon, message) {
-    const b = $('status-banner');
-    b.className = 'status-banner ' + type;
-    b.innerHTML = `<span style="font-size:18px">${icon}</span> ${message}`;
-    b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    // Auto-hide after 8 seconds for success
-    if (type === 'success') {
-      setTimeout(() => { b.style.display = 'none'; }, 8000);
-    }
-  }
-
-  // ── Add to transaction history ─────────────────────────────────────────
-  function addToHistory(recipient, amount, status) {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const icons = { success: '✅', blocked: '🚫', pending: '⏳' };
-    const statusLabels = { success: 'SUCCESS', blocked: 'BLOCKED', pending: 'PENDING' };
-
-    const li = document.createElement('li');
-    li.className = 'txn-item';
-    li.style.animation = 'slideIn 0.3s ease';
-    li.innerHTML = `
-      <div class="txn-left">
-        <div class="txn-avatar">${icons[status] || '💸'}</div>
-        <div>
-          <div class="txn-name">${recipient}</div>
-          <div class="txn-upi">${recipient}</div>
-        </div>
+<!-- ═══════════════════════════════════════════════════ BLOCK MODAL -->
+<div id="block-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal block-modal">
+    <div class="modal-header blocked">
+      <div class="modal-icon blocked-icon">🛡</div>
+      <div>
+        <div class="modal-title">Transaction Blocked</div>
+        <div class="modal-sub">Fraud Interceptor has stopped this payment</div>
       </div>
-      <div class="txn-right">
-        <div class="txn-amount debit">− ₹${Number(amount).toLocaleString('en-IN')}</div>
-        <div class="txn-time">Today, ${timeStr}</div>
-        <span class="txn-status ${status}">${statusLabels[status]}</span>
-      </div>`;
+    </div>
+    <div class="modal-body">
+      <div class="block-txn-summary" id="block-txn-summary"></div>
+      <div class="risk-meter" id="risk-meter"></div>
+      <div class="block-reasons-label">Why this was blocked</div>
+      <ul class="block-reasons" id="block-reasons"></ul>
+      <div class="block-advice">
+        If you believe this is a mistake, please call <strong>1800-XXX-XXXX</strong>
+        or visit your nearest branch.
+      </div>
+    </div>
+    <div class="modal-footer single">
+      <button type="button" class="btn-danger btn-full" id="block-ok-btn">Understood — Go Back</button>
+    </div>
+  </div>
+</div>
 
-    const list = $('txn-history');
-    list.insertBefore(li, list.firstChild);
-  }
+<!-- ═══════════════════════════════════════════════════ SUCCESS RECEIPT -->
+<div id="success-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal success-modal">
+    <div class="success-anim">
+      <div class="success-ring"></div>
+      <div class="success-checkmark">✓</div>
+    </div>
+    <div class="modal-body success-body">
+      <div class="success-title">Payment Successful!</div>
+      <div class="receipt" id="receipt">
+        <!-- Populated by script.js -->
+      </div>
+    </div>
+    <div class="modal-footer single">
+      <button type="button" class="btn-primary btn-full" id="success-ok-btn">Done</button>
+    </div>
+  </div>
+</div>
 
-  // ── Update balance ─────────────────────────────────────────────────────
-  let balance = 84250;
-  function deductBalance(amount) {
-    balance -= parseFloat(amount);
-    $('balance-display').textContent = '₹ ' + balance.toLocaleString('en-IN', {
-      minimumFractionDigits: 2, maximumFractionDigits: 2
-    });
-  }
-
-  // ── Set loading state ──────────────────────────────────────────────────
-  function setLoading(on) {
-    const btn = $('pay-btn');
-    btn.disabled = on;
-    $('btn-text').textContent = on ? 'Checking...' : 'Pay Now ↗';
-    $('btn-spinner').style.display = on ? 'block' : 'none';
-  }
-
-  // ── MAIN PAY HANDLER ───────────────────────────────────────────────────
-  // This is the function the extension's content.js will intercept.
-  // The extension reads #amount and #recipient, contacts the backend,
-  // and calls window.fraudInterceptorResult(response) when done.
-  // If no extension is present, this falls through and simulates success.
-
-  $('pay-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const amount    = parseFloat($('amount').value);
-    const recipient = $('recipient').value.trim();
-
-    if (!recipient) { alert('Please enter a recipient UPI ID.'); return; }
-    if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
-
-    // The extension intercepts here and will call handleFraudResponse().
-    // If extension is not present, we call backend ourselves.
-    setLoading(true);
-    $('status-banner').style.display = 'none';
-
-    // The extension replaces this with its own fetch.
-    // If extension is absent, this is a direct fallback call.
-    try {
-      const res = await fetch('http://127.0.0.1:8000/risk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: 'demo_user', amount, recipient })
-      });
-      const data = await res.json();
-      handleFraudResponse(data, amount, recipient);
-    } catch (err) {
-      // Backend not running — simulate ALLOW for demo purposes
-      console.warn('Backend not reachable, simulating ALLOW for demo:', err);
-      handleFraudResponse({ risk_score: 0.1, action: 'ALLOW', reasons: [] }, amount, recipient);
-    }
-  });
-
-  // ── Fraud response handler (called by extension OR fallback above) ──────
-  window.handleFraudResponse = function(data, amount, recipient) {
-    setLoading(false);
-
-    if (data.action === 'BLOCK') {
-      showStatus('blocked', '🚫',
-        `Transaction BLOCKED. Risk score: ${(data.risk_score * 100).toFixed(0)}% — ${data.reasons[0] || 'Suspicious activity detected.'}`);
-      addToHistory(recipient, amount, 'blocked');
-
-    } else if (data.action === 'VERIFY') {
-      // The extension shows a modal here; this is the fallback message
-      showStatus('blocked', '⚠️',
-        `Verification required. Risk score: ${(data.risk_score * 100).toFixed(0)}%. ${data.reasons[0] || ''}`);
-
-    } else {
-      // ALLOW — process payment
-      deductBalance(amount);
-      addToHistory(recipient, amount, 'success');
-      showStatus('success', '✅',
-        `₹${Number(amount).toLocaleString('en-IN')} sent to ${recipient} successfully!`);
-      $('pay-form').reset();
-    }
-  };
-</script>
+<script src="script.js"></script>
 </body>
 </html>

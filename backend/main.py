@@ -29,6 +29,7 @@
 # backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from backend.routes.risk import router as risk_router
 from backend.config import BLOCK_THRESHOLD, VERIFY_THRESHOLD
 
@@ -37,6 +38,8 @@ app = FastAPI(
     description = "Real-time client-side fraud prevention.",
     version     = "2.0.0",
 )
+
+app.mount("/bank", StaticFiles(directory="mock-bank", html=True), name="bank")
 
 app.add_middleware(
     CORSMiddleware,
