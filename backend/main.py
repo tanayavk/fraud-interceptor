@@ -1,22 +1,48 @@
-"""
-Fraud Interceptor — Backend Entry Point
-==========================================
-Run with:
-    uvicorn backend.main:app --reload --port 8000
-"""
+# """
+# Fraud Interceptor — Backend Entry Point
+# ==========================================
+# Run with:
+#     uvicorn backend.main:app --reload --port 8000
+# """
+
+# # backend/main.py
+# from fastapi import FastAPI
+# from fastapi.middleware.cors import CORSMiddleware
+# from backend.routes.risk import router as risk_router
+
+# app = FastAPI(title="Fraud Interceptor API", version="1.0.0")
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_methods=["POST", "GET"],
+#     allow_headers=["*"],
+# )
+
+# app.include_router(risk_router)
+
+
+# @app.get("/health")
+# def health():
+#     return {"status": "ok", "message": "Fraud Interceptor is running"}
 
 # backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.risk import router as risk_router
+from backend.config import BLOCK_THRESHOLD, VERIFY_THRESHOLD
 
-app = FastAPI(title="Fraud Interceptor API", version="1.0.0")
+app = FastAPI(
+    title       = "Fraud Interceptor API",
+    description = "Real-time client-side fraud prevention.",
+    version     = "2.0.0",
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["POST", "GET"],
-    allow_headers=["*"],
+    allow_origins  = ["*"],
+    allow_methods  = ["GET", "POST"],
+    allow_headers  = ["*"],
 )
 
 app.include_router(risk_router)
@@ -24,4 +50,19 @@ app.include_router(risk_router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "message": "Fraud Interceptor is running"}
+    return {
+        "status"           : "ok",
+        "message"          : "Fraud Interceptor is running",
+        "block_threshold"  : BLOCK_THRESHOLD,
+        "verify_threshold" : VERIFY_THRESHOLD,
+    }
+
+
+@app.on_event("startup")
+def on_startup():
+    print("=" * 50)
+    print("  Fraud Interceptor Backend  v2.0")
+    print(f"  BLOCK  threshold : {BLOCK_THRESHOLD}")
+    print(f"  VERIFY threshold : {VERIFY_THRESHOLD}")
+    print("  Listening on     : http://127.0.0.1:8000")
+    print("=" * 50)
