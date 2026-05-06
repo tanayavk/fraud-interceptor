@@ -4,10 +4,9 @@ uvicorn==0.27.0
 pydantic==2.5.3
 
 # Deep Learning & Math
-tensorflow==2.15.0
-numpy==1.26.3
+tensorflow>=2.12.0  # Flexible versioning to avoid the error
+numpy<2.0.0         # Crucial: TensorFlow 2.15/2.16 doesn't support NumPy 2.0 yet
 scikit-learn==1.4.0
-
 # Data Handling (Excel & DB)
 pandas==2.2.0
 openpyxl==3.1.2

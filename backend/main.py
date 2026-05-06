@@ -1,50 +1,59 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends
+from contextlib import asynccontextmanager
+import schema
+import database
 from services.risk_engine import calculate_final_risk
 from services.sequence_builder import get_user_sequence
 
-app = FastAPI(title="Fraud Interceptor 2026")
+# 1. Lifespan: Ensures the DB table is created before the app starts
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    database.init_db()
+    yield
 
-# 1. Define the Input Schema (Matching your 8-parameter plan)
-class TransactionRequest(BaseModel):
-    user_id: str
-    amount_inr: float
-    hour: int
-    geo_distance: float
-    merchant_risk: float
-    # These are used for Cyber Rules specifically
-    device_id: str
-    location_city: str
+app = FastAPI(
+    title="Fraud Interceptor 2026",
+    description="LSTM-based Financial Fraud Detection System",
+    lifespan=lifespan
+)
 
-@app.post("/analyze-transaction")
-async def analyze(request: TransactionRequest):
+@app.post("/analyze-transaction", response_model=schema.TransactionResponse)
+async def analyze(request: schema.TransactionBase):
+    """
+    Main endpoint that processes 8 parameters to determine fraud risk.
+    """
     try:
-        # A. Fetch History: Get the last 4 transactions + current one to make 5
-        # The sequence_builder handles the SQL query and padding
+        # A. Fetch Transaction History (The Sequence)
+        # Pulls from transactions.db via sequence_builder
         user_history = get_user_sequence(request.user_id, window_size=5)
         
-        # B. Prepare Current Data: Format for the Rule Engine
+        # B. Current Transaction Data (Extracted from the validated Request)
         current_txn = {
             "amount": request.amount_inr,
             "hour": request.hour,
             "distance": request.geo_distance,
             "merchant_risk": request.merchant_risk,
-            "device_id": request.device_id
+            "device_id": request.device_id,
+            "location": request.location_city
         }
 
-        # C. Run Hybrid Analysis: This calls Rules + LSTM
-        # risk_engine.py returns scores and the decision (BLOCK/APPROVE)
+        # C. Run Hybrid Analysis (Rule Engine + LSTM Service)
+        # Weights: 40% Rules, 60% Deep Learning
         result = calculate_final_risk(current_txn, user_history)
 
+        # D. Return standardized response
         return {
             "status": "success",
-            "user_id": request.user_id,
-            "analysis": result
+            "risk_score": result['final_risk_score'],
+            "decision": result['decision']
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the error for debugging
+        print(f"Server Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal analysis failure")
 
 if __name__ == "__main__":
     import uvicorn
+    # Host 0.0.0.0 allows access from other devices in your network for the demo
     uvicorn.run(app, host="0.0.0.0", port=8000)
