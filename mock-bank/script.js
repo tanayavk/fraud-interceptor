@@ -85,24 +85,43 @@ function setLoading(btnId, on) {
 //   }, 1200);
 // });
 
-// We leave this here so the button doesn't error out if clicked
-$('login-form').addEventListener('submit', e => {
-  e.preventDefault();
-  showDashboard();
-});
+// 1. Use getElementById (no # needed) or querySelector (needs #)
+const loginForm = document.getElementById('login-form');
+const logoutBtn = document.getElementById('logout-btn');
+
+if (loginForm) {
+    loginForm.addEventListener('submit', e => {
+        e.preventDefault();
+        showDashboard();
+    });
+}
 
 function showDashboard() {
-    // Hide login, show dashboard using the class 'active' (matching your CSS)
-    document.getElementById('screen-login').classList.remove('active');
-    document.getElementById('screen-dashboard').classList.add('active');
+    const loginScreen = document.getElementById('screen-login');
+    const dashboardScreen = document.getElementById('screen-dashboard');
+
+    // Only try to remove the class if the login screen actually exists
+    if (loginScreen) {
+        loginScreen.classList.remove('active');
+    }
+
+    // Only try to add the class if the dashboard exists
+    if (dashboardScreen) {
+        dashboardScreen.classList.add('active');
+    }
+
+    // These should still run as long as they don't rely on the commented-out HTML
     renderHistory();
     renderContacts();
 }
 
-$('logout-btn').addEventListener('click', () => {
-  $('screen-dashboard').classList.remove('active');
-  $('screen-login').classList.add('active');
-});
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        // Note: You used $('screen-dashboard') here too, changed to getElementById
+        document.getElementById('screen-dashboard')?.classList.remove('active');
+        document.getElementById('screen-login')?.classList.add('active');
+    });
+}
 
 /* ════════════════════════════════════════════════════════════════
    NAVIGATION TABS

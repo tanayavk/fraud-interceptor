@@ -6,11 +6,12 @@ a numpy array of shape (1, max_len, 4) for LSTM input.
 
 Features per timestep: [amount, hour, deviation, velocity]
 """
+
 import numpy as np
 from datetime import datetime
+from backend.config import SEQUENCE_LENGTH
 
-
-def build_sequence(transaction: dict, history: list, max_len: int = 5) -> np.ndarray:
+def build_sequence(transaction: dict, history: list, max_len: int = SEQUENCE_LENGTH) -> np.ndarray:
     """
     Args:
         transaction : dict  - current transaction {"amount": float, "timestamp": float (optional)}

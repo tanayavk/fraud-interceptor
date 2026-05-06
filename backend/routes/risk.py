@@ -47,7 +47,8 @@ class TransactionRequest(BaseModel):
     amount    : float = Field(..., gt=0, le=10_000_000, description="Amount in INR, must be > 0")
     recipient : str   = Field(..., min_length=1, description="Recipient UPI ID")
     timestamp : float = Field(default=None, description="Unix timestamp (auto-filled if missing)")
-
+    device_id : str = Field(default="unknown", description="Device identifier (optional)")
+    
     @field_validator("user_id")
     @classmethod
     def clean_user_id(cls, v):
@@ -66,6 +67,14 @@ class TransactionRequest(BaseModel):
         if v is None or v == 0:
             return time.time()
         return float(v)
+    
+    @field_validator("amount", mode="before")
+    @classmethod
+    def coerce_amount(cls, v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            raise ValueError("amount must be a number")
 
 
 # ── Response schema ──────────────────────────────────────────────────────

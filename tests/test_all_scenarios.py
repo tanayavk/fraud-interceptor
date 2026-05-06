@@ -277,6 +277,17 @@ avg_ms = (time.time() - t0) * 1000 / 20
 check(f"20 calls avg {avg_ms:.1f}ms (must be <200ms)", avg_ms < 200, got=f"{avg_ms:.1f}ms")
 
 
+# Section 8 — Live HTTP test (requires server running)
+try:
+    import requests
+    r = requests.post("http://127.0.0.1:8000/risk",
+        json={"user_id":"http_test","amount":1000,"recipient":"test@upi"},
+        timeout=3)
+    check("HTTP 200 from live server", r.status_code == 200)
+    check("JSON has risk_score", "risk_score" in r.json())
+except Exception as e:
+    print(f"  SKIP  Live HTTP test (server not running): {e}")
+
 # ════════════════════════════════════════════════════════════════════════
 #  SUMMARY TABLE
 # ════════════════════════════════════════════════════════════════════════

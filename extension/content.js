@@ -34,7 +34,11 @@ const SELECTORS = {
 let intercepting = false;
 
 /* ── Attach ────────────────────────────────────────────────────── */
+let attachAttempts = 0;
 function attach() {
+  attachAttempts++;
+  if (attachAttempts > 20) return; // stop after 10 second
+
   const form = document.querySelector(SELECTORS.FORM);
   if (!form) { setTimeout(attach, 500); return; }
 
@@ -66,7 +70,7 @@ async function onSubmit(e) {
 
   let riskData;
   try {
-    riskData = await callBackend(amount, recipient);
+    riskData = await callBackendWithRetry(amount, recipient);
   } catch (err) {
     console.warn('[FraudInterceptor] Backend error — defaulting to VERIFY:', err);
     riskData = {
@@ -116,6 +120,17 @@ async function callBackend(amount, recipient) {
   return res.json();
 }
 
+async function callBackendWithRetry(amount, recipient, retries = 1) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await callBackend(amount, recipient);
+    } catch (err) {
+      if (i === retries) throw err;
+      await new Promise(r => setTimeout(r, 600)); // wait 600ms then retry
+    }
+  }
+}
+
 /* ── Loading state ─────────────────────────────────────────────── */
 function setButtonState(loading) {
   const btn = document.querySelector(SELECTORS.PAY_BTN);
@@ -135,9 +150,9 @@ function showFallbackModal(data, amount, recipient) {
   const reasons = data.reasons || [];
 
   const cfg = {
-    ALLOW  : { icon:'✅', cls:'fi-allow',  title:'Transaction Approved',     btnHtml:`<button class="fi-btn fi-btn-success" onclick="fiClose('proceed')">Proceed</button>` },
-    VERIFY : { icon:'⚠️', cls:'fi-verify', title:'Verification Recommended', btnHtml:`<button class="fi-btn fi-btn-ghost" onclick="fiClose('cancel')">Cancel</button><button class="fi-btn fi-btn-warning" onclick="fiClose('proceed')">Proceed Anyway</button>` },
-    BLOCK  : { icon:'🚫', cls:'fi-block',  title:'Transaction Blocked',      btnHtml:`<button class="fi-btn fi-btn-danger" onclick="fiClose('block')">Understood</button>` },
+    ALLOW  : { icon:'✅', cls:'fi-allow',  title:'Transaction Approved',     btnHtml:`<button class="fi-btn fi-btn-success">Proceed</button>` },
+    VERIFY : { icon:'⚠️', cls:'fi-verify', title:'Verification Recommended', btnHtml:`<button class="fi-btn fi-btn-ghost">Cancel</button><button class="fi-btn fi-btn-warning" onclick="fiClose('proceed')">Proceed Anyway</button>` },
+    BLOCK  : { icon:'🚫', cls:'fi-block',  title:'Transaction Blocked',      btnHtml:`<button class="fi-btn fi-btn-danger">Understood</button>` },
   };
   const c = cfg[action] || cfg.VERIFY;
 
@@ -170,19 +185,21 @@ function showFallbackModal(data, amount, recipient) {
 
   document.body.appendChild(overlay);
 
-  window.fiClose = function(decision) {
-    overlay.remove();
-    if (decision === 'proceed') {
-      // Re-submit form bypassing intercept
+  const proceedBtn = overlay.querySelector('#fi-btn-proceed');
+  const cancelBtn  = overlay.querySelector('#fi-btn-cancel');
+  const blockBtn   = overlay.querySelector('#fi-btn-block');
+
+  const closeAndProceed = () => {
+      overlay.remove();
       const form = document.querySelector(SELECTORS.FORM);
-      if (form) {
-        const fakeSubmit = form.onsubmit;
-        form.onsubmit = null;
-        form.submit?.();
-        form.onsubmit = fakeSubmit;
-      }
-    }
+      if (form) form.submit(); // Standard form submit bypasses listeners
   };
+
+  const closeOnly = () => overlay.remove();
+
+  if (proceedBtn) proceedBtn.onclick = closeAndProceed;
+  if (cancelBtn)  cancelBtn.onclick = closeOnly;
+  if (blockBtn)   blockBtn.onclick = closeOnly;
 
   if (action === 'VERIFY') {
     overlay.addEventListener('click', e => { if (e.target === overlay) fiClose('cancel'); });

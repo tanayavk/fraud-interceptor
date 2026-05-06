@@ -38,9 +38,12 @@ def build_reasons(flags: list, dl_score: float, action: str) -> list:
         reasons.append("AI model flagged a mild irregularity compared to your normal activity.")
 
     # Action summary
-    if action == "BLOCK":
+    # If it's an ALLOWed transaction, we usually want it silent/empty
+    if action == "ALLOW":
+        return []
+    elif action == "BLOCK":
         reasons.append("Transaction has been BLOCKED for your protection.")
     elif action == "VERIFY":
         reasons.append("Please verify this transaction before proceeding.")
-
-    return reasons
+    return reasons 
+ 
