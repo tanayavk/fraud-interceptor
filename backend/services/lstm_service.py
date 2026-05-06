@@ -16,7 +16,7 @@ def predict(sequence):
         model = tf.keras.models.load_model(MODEL_PATH)
         
         # Ensure sequence is a numpy array of shape (1, 5, 4)
-        input_data = np.array(sequence).reshape(1, 5, 4)
+        input_data = np.array(sequence).reshape(1, 5, 8)   
         prediction = model.predict(input_data, verbose=0)
         
         return {"dl_score": float(prediction[0][0])}
