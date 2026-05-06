@@ -1,33 +1,25 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 import schema
 import database
 from services.risk_engine import calculate_final_risk
 from services.sequence_builder import get_user_sequence
+from backend.db.database import init_db
+init_db()
 
-# 1. Lifespan: Ensures the DB table is created before the app starts
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    database.init_db()
+    database.init_db() # Create table on startup
     yield
 
-app = FastAPI(
-    title="Fraud Interceptor 2026",
-    description="LSTM-based Financial Fraud Detection System",
-    lifespan=lifespan
-)
+app = FastAPI(title="Fraud Interceptor 2026", lifespan=lifespan)
 
 @app.post("/analyze-transaction", response_model=schema.TransactionResponse)
 async def analyze(request: schema.TransactionBase):
-    """
-    Main endpoint that processes 8 parameters to determine fraud risk.
-    """
     try:
-        # A. Fetch Transaction History (The Sequence)
-        # Pulls from transactions.db via sequence_builder
+        # Fetch history for the LSTM sequence
         user_history = get_user_sequence(request.user_id, window_size=5)
         
-        # B. Current Transaction Data (Extracted from the validated Request)
         current_txn = {
             "amount": request.amount_inr,
             "hour": request.hour,
@@ -37,23 +29,14 @@ async def analyze(request: schema.TransactionBase):
             "location": request.location_city
         }
 
-        # C. Run Hybrid Analysis (Rule Engine + LSTM Service)
-        # Weights: 40% Rules, 60% Deep Learning
+        # Hybrid Analysis: 40% Rules, 60% LSTM
         result = calculate_final_risk(current_txn, user_history)
 
-        # D. Return standardized response
         return {
             "status": "success",
             "risk_score": result['final_risk_score'],
             "decision": result['decision']
         }
-
     except Exception as e:
-        # Log the error for debugging
         print(f"Server Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal analysis failure")
-
-if __name__ == "__main__":
-    import uvicorn
-    # Host 0.0.0.0 allows access from other devices in your network for the demo
-    uvicorn.run(app, host="0.0.0.0", port=8000)

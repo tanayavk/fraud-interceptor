@@ -1,47 +1,25 @@
-import numpy as np
-import tensorflow as tf
 import os
+import tensorflow as tf
+import numpy as np
 
-# Failsafe: Load model globally
-MODEL_PATH = 'ml/model/lstm_model.h5'
-model = None
-
-if os.path.exists(MODEL_PATH):
-    try:
-        model = tf.keras.models.load_model(MODEL_PATH)
-    except:
-        model = None
+# Build a robust path relative to this file
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, 'ml', 'model', 'lstm_model.h5')
 
 def predict(sequence):
-    """
-    Input: List of lists [[amt, hr, dev, vel], ...]
-    Output: {"dl_score": float}
-    """
-    # FAILSAFE: Data missing, empty sequence, or model load failure
-    if not sequence or model is None or len(sequence) == 0:
-        return {"dl_score": 0.5}
-
     try:
-        # Convert to numpy and reshape to (1, N, 4)
-        seq_array = np.array(sequence, dtype=np.float32)
-        
-        # Ensure sequence length matches model training (padding/truncating)
-        if seq_array.shape[0] < 5:
-            # Pad with zeros if sequence is too short
-            padding = np.zeros((5 - seq_array.shape[0], 4))
-            seq_array = np.vstack((padding, seq_array))
-        else:
-            seq_array = seq_array[-5:] # Take last 5
+        # Check if file exists before trying to load
+        if not os.path.exists(MODEL_PATH):
+            print(f"❌ Model file not found at: {MODEL_PATH}")
+            return {"dl_score": 0.5}
             
-        input_data = np.expand_dims(seq_array, axis=0)
+        model = tf.keras.models.load_model(MODEL_PATH)
         
-        # Inference
+        # Ensure sequence is a numpy array of shape (1, 5, 4)
+        input_data = np.array(sequence).reshape(1, 5, 4)
         prediction = model.predict(input_data, verbose=0)
-        score = float(prediction[0][0])
         
-        return {"dl_score": round(score, 4)}
-
+        return {"dl_score": float(prediction[0][0])}
     except Exception as e:
-        # FAILSAFE: Any execution error
-        print(f"DL Error: {e}")
+        print(f"❌ LSTM Error: {str(e)}") # This will tell you the REAL problem
         return {"dl_score": 0.5}

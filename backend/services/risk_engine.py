@@ -15,10 +15,9 @@ def calculate_final_risk(transaction_data, user_history_sequence):
     
     # 1. TIER 1: CYBER HEURISTICS (Rule Engine)
     # Returns a score from 0 to 1 based on velocity, blacklists, and limits
-    rule_results = check_cyber_rules(transaction_data)
+    rule_results = check_cyber_rules(transaction_data, [])
     rule_score = rule_results.get("rule_score", 0.0)
-    triggered_rules = rule_results.get("triggered_rules", [])
-
+    triggered_rules = rule_results.get("flags", [])
     # 2. TIER 2: DEEP LEARNING (LSTM Core)
     # Processes the sequence of transactions to find behavioral patterns
     dl_results = get_dl_score(user_history_sequence)
