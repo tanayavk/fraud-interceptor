@@ -1,0 +1,73 @@
+{
+    "demo_user": [
+        {
+            "user_id": "demo_user",
+            "amount": 120.0,
+            "recipient": "metro_recharge@paytm",
+            "timestamp": 1715096400.0,
+            "hour": 19,
+            "amount_zscore": -0.6,
+            "tx_frequency_60m": 1,
+            "device_fingerprint": 1.0,
+            "location_consistency": 1,
+            "category_risk": 0.1,
+            "account_age_days": 365
+        },
+        {
+            "user_id": "demo_user",
+            "amount": 500.0,
+            "recipient": "amazon@apl",
+            "timestamp": 1778119318.5335305,
+            "device_id": "unknown",
+            "hour": 7,
+            "amount_zscore": -0.44886711573790566,
+            "tx_frequency_60m": 1.0,
+            "device_fingerprint": 1.0,
+            "location_consistency": 1,
+            "category_risk": 0.1,
+            "account_age_days": 365
+        },
+        {
+            "user_id": "demo_user",
+            "amount": 200000.0,
+            "recipient": "newmerchant99@paytm",
+            "timestamp": 1778119362.5633845,
+            "device_id": "unknown",
+            "hour": 7,
+            "amount_zscore": 937.9671361502348,
+            "tx_frequency_60m": 1.0,
+            "device_fingerprint": 1.0,
+            "location_consistency": 1,
+            "category_risk": 0.1,
+            "account_age_days": 365
+        },
+        {
+            "user_id": "demo_user",
+            "amount": 200000.0,
+            "recipient": "newmerchant99@paytm",
+            "timestamp": 1778119560.1753898,
+            "device_id": "unknown",
+            "hour": 7,
+            "amount_zscore": 3.9772291765174326,
+            "tx_frequency_60m": 1.0,
+            "device_fingerprint": 1.0,
+            "location_consistency": 1,
+            "category_risk": 0.1,
+            "account_age_days": 365
+        },
+        {
+            "user_id": "demo_user",
+            "amount": 200000.0,
+            "recipient": "newmerchant99@paytm",
+            "timestamp": 1778119642.889194,
+            "device_id": "unknown",
+            "hour": 7,
+            "amount_zscore": 1.494574300895552,
+            "tx_frequency_60m": 1.0,
+            "device_fingerprint": 1.0,
+            "location_consistency": 1,
+            "category_risk": 0.1,
+            "account_age_days": 365
+        }
+    ]
+}

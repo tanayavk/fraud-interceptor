@@ -33,6 +33,7 @@ Validates input, delegates to risk_engine, returns strict API format.
 Never crashes — all errors return a safe VERIFY response.
 """
 import time
+from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, field_validator
 
@@ -46,8 +47,10 @@ class TransactionRequest(BaseModel):
     user_id   : str   = Field(default="anonymous", description="User identifier")
     amount    : float = Field(..., gt=0, le=10_000_000, description="Amount in INR, must be > 0")
     recipient : str   = Field(..., min_length=1, description="Recipient UPI ID")
-    timestamp : float = Field(default=None, description="Unix timestamp (auto-filled if missing)")
-    device_id : str = Field(default="unknown", description="Device identifier (optional)")
+    # timestamp : float = Field(default=None, description="Unix timestamp (auto-filled if missing)")
+    # device_id : str = Field(default="unknown", description="Device identifier (optional)")
+    timestamp: Optional[float] = None
+    device_id: Optional[str] = "unknown"
     
     @field_validator("user_id")
     @classmethod

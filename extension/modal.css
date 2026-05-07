@@ -1,12 +1,12 @@
 /* Fraud Interceptor Modal — injected into banking page */
 
 #fi-overlay {
-  position: fixed;
+  position: fixed !important;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
-  z-index: 999999;
-  display: flex;
+  z-index: 2147483647 !important;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   animation: fi-fade-in 0.2s ease;

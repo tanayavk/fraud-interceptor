@@ -29,7 +29,7 @@ const PHONE_MASK  = '+91 XXXXX89012';   // simulated phone for OTP display
 /* ════════════════════════════════════════════════════════════════
    STATE
    ════════════════════════════════════════════════════════════════ */
-let balance         = 84250;
+let balance         = 8964570;
 let monthlyDebit    = 14299;
 let currentOTP      = null;
 let otpTimer        = null;
@@ -339,14 +339,24 @@ $('pay-form').addEventListener('submit', async e => {
 function waitForExtension(amount, recipient) {
   return new Promise(resolve => {
     let resolved = false;
+    
+    // Increase timeout to 10 seconds to allow the backend to respond
     const timeout = setTimeout(() => {
-      if (!resolved) { resolved = true; resolve(null); }
-    }, 300);  // fast timeout — extension fires synchronously before this
+      if (!resolved) { 
+          resolved = true; 
+          console.log("[SecureBank] Extension timeout - falling back to direct call");
+          resolve(null); 
+      }
+    }, 30000); 
 
     document.addEventListener('fraudResult', function handler(e) {
       document.removeEventListener('fraudResult', handler);
       clearTimeout(timeout);
-      if (!resolved) { resolved = true; resolve(e.detail); }
+      if (!resolved) { 
+          resolved = true; 
+          console.log("[SecureBank] Data received from extension");
+          resolve(e.detail); 
+      }
     }, { once: true });
   });
 }

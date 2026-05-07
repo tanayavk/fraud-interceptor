@@ -35,30 +35,63 @@ let intercepting = false;
 
 /* ── Attach ────────────────────────────────────────────────────── */
 let attachAttempts = 0;
+// function attach() {
+//   attachAttempts++;
+//   if (attachAttempts > 20) return; // stop after 10 second
+
+//   const form = document.querySelector(SELECTORS.FORM);
+//   if (!form) { setTimeout(attach, 500); return; }
+
+//   form.addEventListener('submit', onSubmit, true);  // capture phase — fires first
+//   console.log('[FraudInterceptor] Attached to #pay-form');
+// }
+
+
 function attach() {
-  attachAttempts++;
-  if (attachAttempts > 20) return; // stop after 10 second
+  // 1. Target the BUTTON, not the form
+    const payButton = document.querySelector(SELECTORS.PAY_BTN);
+    const form = document.querySelector(SELECTORS.FORM);
+    
+    if (!payButton || !form) {
+        setTimeout(attach, 500);
+        return;
+    }
 
-  const form = document.querySelector(SELECTORS.FORM);
-  if (!form) { setTimeout(attach, 500); return; }
+    // 2. Add the listener to the button in the capture phase
+    payButton.removeEventListener('click', onButtonClick, true);
+    payButton.addEventListener('click', onButtonClick, true);
+    
+    console.log('[FraudInterceptor] Nuclear Attack attached to #pay-btn');
+//   // Use a selector that targets the form specifically
+//   const form = document.querySelector('#pay-form');
+//   if (!form) {
+//     setTimeout(attach, 500);
+//     return;
+//   }
 
-  form.addEventListener('submit', onSubmit, true);  // capture phase — fires first
-  console.log('[FraudInterceptor] Attached to #pay-form');
+//   // Remove any old listeners first to avoid "Double Popups"
+//   form.removeEventListener('submit', onSubmit, true);
+//   // Add listener with 'capture: true' to stop the event at the source
+//   form.addEventListener('submit', onSubmit, true);
+//   console.log('[FraudInterceptor] Hard-attached to #pay-form');
 }
 
 async function onSubmit(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
-
+  e.stopPropagation();
+  
   if (intercepting) return;
+  intercepting=true; //Block recursive calls
 
-  const amount    = parseFloat(document.querySelector(SELECTORS.AMOUNT)?.value || '0');
+  const rawAmount = document.querySelector('#amount').innerText;
+  const amount = parseFloat(rawAmount.replace(/,/g, '')); // Remove all commas
   const recipient = (document.querySelector(SELECTORS.RECIPIENT)?.value || '').trim();
 
   if (!recipient || !amount || amount <= 0) {
     // Let script.js handle its own validation — re-fire without capturing
     intercepting = true;
-    form_element.removeEventListener('submit', onSubmit, true);
+    e.target.removeEventListener('submit', onSubmit, true);    
     e.target.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     intercepting = false;
     attach();
@@ -68,9 +101,15 @@ async function onSubmit(e) {
   // Show loading state (extension sets it, script.js also sets it)
   setButtonState(true);
 
-  let riskData;
+  const riskData;
   try {
     riskData = await callBackendWithRetry(amount, recipient);
+    // IMPORTANT: Only show the fallback modal if the bank's own script isn't going to handle it.
+    if (window.fraudInterceptorReady) {
+       document.dispatchEvent(new CustomEvent('fraudResult', { detail: riskData }));
+    } else {
+       showFallbackModal(riskData, amount, recipient);
+    }
   } catch (err) {
     console.warn('[FraudInterceptor] Backend error — defaulting to VERIFY:', err);
     riskData = {
@@ -78,6 +117,8 @@ async function onSubmit(e) {
       action     : 'VERIFY',
       reasons    : ['Security service unreachable. Please verify manually.'],
     };
+  } finally {
+    intercepting = false; 
   }
 
   setButtonState(false);
@@ -97,6 +138,47 @@ async function onSubmit(e) {
     // Fallback: page has no script.js — show our own injected modal
     showFallbackModal(riskData, amount, recipient);
   }
+  return false;
+}
+
+async function onButtonClick(e) {
+    // A. STOP EVERYTHING. The form cannot submit because the button is hijacked.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+
+    if (intercepting) return false;
+    intercepting = true;
+
+    // ... (Your validation and scraping logic) ...
+    const rawAmount = document.querySelector('#amount').value || document.querySelector('#amount').innerText;
+    const amount = parseFloat(String(rawAmount).replace(/,/g, ''));
+    const recipient = (document.querySelector('#recipient')?.value || '').trim();
+    // ...
+
+    setButtonState(true); // Show spinner
+
+    try {
+        // B. Call Backend
+        const riskData = await callBackendWithRetry(amount, recipient);
+        
+        // C. Route to UI
+        if (window.fraudInterceptorReady) {
+            // Handover to the "pretty" OTP modal in script.js
+            document.dispatchEvent(new CustomEvent('fraudResult', { detail: riskData }));
+        } else {
+            // Use the fallback modal in content.js
+            showFallbackModal(riskData, amount, recipient);
+        }
+    } catch (err) {
+        console.error("Backend connection failed:", err);
+    } finally {
+        setButtonState(false);
+        intercepting = false;
+    }
+
+    // D. Hard stop. The page cannot change.
+    return false;
 }
 
 /* ── Backend call ──────────────────────────────────────────────── */
@@ -150,9 +232,9 @@ function showFallbackModal(data, amount, recipient) {
   const reasons = data.reasons || [];
 
   const cfg = {
-    ALLOW  : { icon:'✅', cls:'fi-allow',  title:'Transaction Approved',     btnHtml:`<button class="fi-btn fi-btn-success">Proceed</button>` },
-    VERIFY : { icon:'⚠️', cls:'fi-verify', title:'Verification Recommended', btnHtml:`<button class="fi-btn fi-btn-ghost">Cancel</button><button class="fi-btn fi-btn-warning" onclick="fiClose('proceed')">Proceed Anyway</button>` },
-    BLOCK  : { icon:'🚫', cls:'fi-block',  title:'Transaction Blocked',      btnHtml:`<button class="fi-btn fi-btn-danger">Understood</button>` },
+    ALLOW:  { icon:'✅', cls:'fi-allow',  title:'Transaction Approved',    btnHtml:`<button id="fi-btn-proceed" class="fi-btn fi-btn-success">Proceed</button>` },
+    VERIFY: { icon:'⚠️', cls:'fi-verify', title:'Verification Recommended', btnHtml:`<button id="fi-btn-cancel" class="fi-btn fi-btn-ghost">Cancel</button><button id="fi-btn-proceed" class="fi-btn fi-btn-warning">Proceed Anyway</button>` },
+    BLOCK:  { icon:'🚫', cls:'fi-block',  title:'Transaction Blocked',     btnHtml:`<button id="fi-btn-block" class="fi-btn fi-btn-danger">Understood</button>` },
   };
   const c = cfg[action] || cfg.VERIFY;
 
@@ -191,15 +273,18 @@ function showFallbackModal(data, amount, recipient) {
 
   const closeAndProceed = () => {
       overlay.remove();
-      const form = document.querySelector(SELECTORS.FORM);
-      if (form) form.submit(); // Standard form submit bypasses listeners
+      // Use the bank's internal router if available, otherwise just submit
+      if (window.fraudInterceptorReady) {
+          document.dispatchEvent(new CustomEvent('fraudResult', { detail: data }));
+      } else {
+          const form = document.querySelector(SELECTORS.FORM);
+          if (form) HTMLFormElement.prototype.submit.call(form);
+      }
   };
 
-  const closeOnly = () => overlay.remove();
-
   if (proceedBtn) proceedBtn.onclick = closeAndProceed;
-  if (cancelBtn)  cancelBtn.onclick = closeOnly;
-  if (blockBtn)   blockBtn.onclick = closeOnly;
+  if (cancelBtn)  cancelBtn.onclick = () => overlay.remove();
+  if (blockBtn)   blockBtn.onclick = () => overlay.remove();
 
   if (action === 'VERIFY') {
     overlay.addEventListener('click', e => { if (e.target === overlay) fiClose('cancel'); });
