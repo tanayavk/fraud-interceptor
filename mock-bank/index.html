@@ -317,7 +317,29 @@
       </div>
     </div>
     <div class="modal-footer single">
-        <button type="button" class="btn-danger btn-full" id="block-ok-btn">Understood — Go Back</button>  </div>
+        <button type="button" class="btn-danger btn-full" id="block-ok-btn">Understood — Go Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ ALLOW MODAL -->
+<div id="allow-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal allow-modal">
+    <div class="modal-header allowed">
+      <div class="modal-icon">✅</div>
+      <div>
+        <div class="modal-title">Transaction Approved</div>
+        <div class="modal-sub">This transaction has been cleared as low risk</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="allow-txn-summary" id="allow-txn-summary"></div>
+      <div class="allow-risk-score" id="allow-risk-score"></div>
+    </div>
+    <div class="modal-footer single">
+      <button type="button" class="btn-primary btn-full" id="allow-proceed-btn">Proceed</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════ SUCCESS RECEIPT -->

@@ -294,6 +294,11 @@ function validateForm() {
    ════════════════════════════════════════════════════════════════ */
 $('pay-form').addEventListener('submit', async e => {
   e.preventDefault();
+
+  // Extension sets this flag before it calls the backend.
+  // If it's set, the extension is already handling this transaction — do nothing.
+  if (window._fraudIntercepting) return;
+
   if (!validateForm()) return;
 
   const amount    = parseFloat($('amount').value);
@@ -302,31 +307,22 @@ $('pay-form').addEventListener('submit', async e => {
   hide('status-banner');
   setLoading('pay-btn', true);
 
-  // Extension fires 'fraudResult' event if present;
-  // wait up to 6 seconds for it before falling back.
-  let riskData = null;
-
-  const extensionResult = await waitForExtension(amount, recipient);
-  if (extensionResult) {
-    riskData = extensionResult;
-  } else {
-    // No extension — call backend directly
-    try {
-      const res = await fetch(BACKEND_URL, {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({ user_id: USER_ID, amount, recipient }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      riskData = await res.json();
-    } catch (err) {
-      console.warn('[SecureBank] Backend unreachable — simulating VERIFY:', err);
-      riskData = {
-        risk_score : 0.5,
-        action     : 'VERIFY',
-        reasons    : ['Security check could not complete. Verification required.'],
-      };
-    }
+  let riskData;
+  try {
+    const res = await fetch(BACKEND_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ user_id: USER_ID, amount, recipient }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    riskData = await res.json();
+  } catch (err) {
+    console.warn('[SecureBank] Backend unreachable — simulating VERIFY:', err);
+    riskData = {
+      risk_score : 0.5,
+      action     : 'VERIFY',
+      reasons    : ['Security check could not complete. Verification required.'],
+    };
   }
 
   setLoading('pay-btn', false);
@@ -372,10 +368,26 @@ function routeResponse(data, amount, recipient) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ALLOW — silent pass-through
+   ALLOW — show approved popup, proceed only on button click
    ════════════════════════════════════════════════════════════════ */
 function handleAllow(amount, recipient, data) {
-  completeTransaction(amount, recipient, 'direct');
+  const pct = Math.round((data.risk_score || 0) * 100);
+
+  $('allow-txn-summary').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--muted)">Approved Transfer</div>
+        <div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:var(--green);margin-top:3px">
+          ₹ ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">To: ${recipient}</div>
+      </div>
+      <div style="font-size:36px">✅</div>
+    </div>`;
+
+  $('allow-risk-score').textContent = `Risk Score: ${pct}% — Low Risk`;
+
+  show('allow-overlay');
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -463,7 +475,7 @@ function handleBlock(amount, recipient, data) {
     if (bar) bar.style.width = pct + '%';
   }, 150);
 
-  // Log to history
+  // Log to history — the modal already tells the user everything, no extra banner needed
   addToHistory({
     id     : 'TXN' + Date.now().toString(36).toUpperCase().slice(-6),
     icon   : '🚫',
@@ -473,9 +485,6 @@ function handleBlock(amount, recipient, data) {
     time   : 'Just now',
     status : 'blocked',
   });
-
-  showBanner('blocked', `🚫 <strong>Transaction Blocked</strong> — ₹${amount.toLocaleString('en-IN')} to ${recipient}. Risk score: ${pct}%.`);
-  $('pay-form').reset();
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -639,6 +648,9 @@ $('resend-btn').addEventListener('click', () => {
 $('block-ok-btn').addEventListener('click', () => {
   hide('block-overlay');
   pendingTxn = null;
+  $('pay-form').reset();
+  $('err-recipient').textContent = '';
+  $('err-amount').textContent    = '';
 });
 
 /* ════════════════════════════════════════════════════════════════
@@ -712,30 +724,50 @@ $('success-ok-btn').addEventListener('click', () => {
 });
 
 /* ════════════════════════════════════════════════════════════════
+   ALLOW MODAL CLOSE — only on Proceed button
+   ════════════════════════════════════════════════════════════════ */
+$('allow-proceed-btn').addEventListener('click', () => {
+  hide('allow-overlay');
+  if (pendingTxn) {
+    completeTransaction(pendingTxn.amount, pendingTxn.recipient, 'direct');
+  }
+});
+
+/* ════════════════════════════════════════════════════════════════
    EXTENSION BRIDGE
    Exposes window.fraudInterceptorReady so extension can check
    that the page script is loaded before firing the event.
    ════════════════════════════════════════════════════════════════ */
 window.fraudInterceptorReady = true;
 
-/* The extension fires this event instead of calling backend itself.
-   This makes extension and page cleanly decoupled. */
+/* The extension fires this event after intercepting the button click.
+   Because the extension calls e.preventDefault() on the click, the form
+   never submits, so the submit handler + waitForExtension() never run.
+   This listener IS the handler when the extension is present. */
 document.addEventListener('fraudResult', e => {
   extensionPresent = true;
-  // The form submit handler catches this via waitForExtension()
-  // — no extra handling needed here.
-  console.log('[SecureBank] Received fraudResult from extension:', e.detail);
+  const data = e.detail;
+  console.log('[SecureBank] Received fraudResult from extension:', data);
+
+  const amount    = parseFloat($('amount').value);
+  const recipient = $('recipient').value.trim();
+
+  // Validate before routing — show field errors if blank
+  if (!validateForm()) {
+    setLoading('pay-btn', false);
+    return;
+  }
+
+  setLoading('pay-btn', false);
+  hide('status-banner');
+  pendingTxn = { amount, recipient, riskData: data };
+  routeResponse(data, amount, recipient);
 });
 
 /* ════════════════════════════════════════════════════════════════
-   KEYBOARD: Escape to close overlays
+   KEYBOARD: Escape is intentionally disabled — overlays must be
+   dismissed only via their designated buttons.
    ════════════════════════════════════════════════════════════════ */
-document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
-  if (!isHidden('otp-overlay'))  $('otp-cancel-btn').click();
-  if (!isHidden('block-overlay'))$('block-ok-btn').click();
-  if (!isHidden('success-overlay')) $('success-ok-btn').click();
-});
 
 /* ════════════════════════════════════════════════════════════════
    INIT
